@@ -1,0 +1,4 @@
+-f https://openxla.github.io/iree/pip-release-links.html
+
+iree-compiler==20240207.794
+iree-runtime==20240207.794
