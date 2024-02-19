@@ -3,7 +3,7 @@ import os
 import pathlib
 
 import numpy as np
-import shark_turbine.aot as aot
+import torch_mlir
 import torch
 
 
@@ -22,6 +22,8 @@ def generate_module(
     padding: tuple[int, int], module_input: np.ndarray, work_dir: pathlib.Path
 ):
     os.makedirs(name=work_dir, exist_ok=True)
+    os.makedirs(name=work_dir / "linalg", exist_ok=True)
+    os.makedirs(name=work_dir / "tosa", exist_ok=True)
 
     torch_module = Conv2DModule(padding=padding).to(torch.device("cpu"))
 
@@ -31,10 +33,18 @@ def generate_module(
     np.save(file=work_dir / "expected_output", arr=torch_output.detach().numpy())
 
     # Compile
-    mlir_module_path = work_dir / "module.mlir"
-    export_output = aot.export(torch_module, torch.tensor(module_input))
+
+    # Linalg
+    compiled = torch_mlir.compile(torch_module, torch.tensor(module_input), output_type=torch_mlir.OutputType.LINALG_ON_TENSORS)
+    mlir_module_path = work_dir / "linalg" / "module.mlir"
     with open(mlir_module_path, "w", encoding="utf-8") as f:
-        f.write(str(export_output.mlir_module))
+        f.write(str(compiled))
+    
+    # TOSA
+    compiled = torch_mlir.compile(torch_module, torch.tensor(module_input), output_type=torch_mlir.OutputType.TOSA)
+    mlir_module_path = work_dir / "tosa" / "module.mlir"
+    with open(mlir_module_path, "w", encoding="utf-8") as f:
+        f.write(str(compiled))
 
 
 def main():
@@ -46,13 +56,14 @@ def main():
     args = parser.parse_args()
 
     np.random.seed(42)
+    torch.manual_seed(0)
 
-    work_dir = pathlib.Path(__file__).parent / "output"
+    work_dir = pathlib.Path(__file__).parent / "output" / "torch-mlir"
     os.makedirs(name=work_dir, exist_ok=True)
 
     input_shape = (1, 1, 16, 16)
     module_input = np.random.rand(*input_shape).astype(np.float32)
-    np.save(file=work_dir / "module_input", arr=module_input)
+    np.save(file=work_dir.parent / "module_input", arr=module_input)
 
     generate_module(
         padding=(args.pad_x, args.pad_y),

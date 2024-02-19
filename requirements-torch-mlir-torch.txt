@@ -1,0 +1,3 @@
+-i https://download.pytorch.org/whl/nightly/cu121
+--pre
+torch==2.3.0.dev20240122
